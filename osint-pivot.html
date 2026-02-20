@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OSIntel Pivot</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #040608;
+  --panel:     #080d12;
+  --border:    #152030;
+  --border-hi: #1e3a50;
+  --green:     #00ff9f;
+  --cyan:      #00cfff;
+  --orange:    #ff7b2e;
+  --red:       #ff3e5e;
+  --purple:    #b06eff;
+  --text:      #8fa8b8;
+  --text-hi:   #c8dde8;
+  --dim:       #2a404f;
+}
+
+html, body { height: 100%; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Share Tech Mono', monospace;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* CRT scanlines */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0,0,0,0.12) 3px,
+    rgba(0,0,0,0.12) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Subtle grid */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(0,207,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,207,255,0.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app {
+  position: relative;
+  z-index: 1;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 36px 20px 60px;
+}
+
+/* ── Header ─────────────────────────────── */
+header {
+  margin-bottom: 40px;
+  animation: slidein 0.5s ease both;
+}
+
+.wordmark {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: clamp(2rem, 6vw, 3.2rem);
+  letter-spacing: 0.08em;
+  line-height: 1;
+  color: var(--cyan);
+  text-shadow: 0 0 24px rgba(0,207,255,0.5), 0 0 60px rgba(0,207,255,0.15);
+}
+
+.wordmark em { color: var(--green); font-style: normal; }
+
+.subtitle {
+  margin-top: 6px;
+  font-size: 0.65rem;
+  letter-spacing: 0.35em;
+  color: var(--dim);
+  text-transform: uppercase;
+}
+
+.hline {
+  margin-top: 20px;
+  border: none;
+  border-top: 1px solid var(--border);
+  position: relative;
+}
+.hline::after {
+  content: '';
+  position: absolute;
+  top: -1px; left: 0;
+  width: 120px; height: 1px;
+  background: linear-gradient(90deg, var(--cyan), transparent);
+}
+
+/* ── Card ─────────────────────────────── */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.card-label {
+  position: absolute;
+  top: -1px; left: 20px;
+  background: var(--panel);
+  padding: 0 8px;
+  font-size: 0.58rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  transform: translateY(-50%);
+}
+
+.card-body { padding: 24px 20px 20px; }
+
+/* ── Input area ─────────────────────────── */
+.input-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+#obs-input {
+  flex: 1;
+  background: #000;
+  border: 1px solid var(--border-hi);
+  border-radius: 2px;
+  color: var(--green);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 1.05rem;
+  padding: 13px 16px;
+  outline: none;
+  caret-color: var(--green);
+  transition: border-color .2s, box-shadow .2s;
+  letter-spacing: 0.04em;
+}
+#obs-input::placeholder { color: var(--dim); font-size: 0.85rem; }
+#obs-input:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 1px rgba(0,255,159,0.15), inset 0 0 30px rgba(0,255,159,0.03);
+}
+
+.detect-pill {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  border-radius: 2px;
+  font-size: 0.62rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  font-weight: 600;
+  border: 1px solid;
+  animation: pop .2s ease;
+}
+.detect-pill.visible { display: flex; }
+.detect-pill.ip     { color: var(--green);  border-color: var(--green);  background: rgba(0,255,159,0.07); }
+.detect-pill.url    { color: var(--cyan);   border-color: var(--cyan);   background: rgba(0,207,255,0.07); }
+.detect-pill.domain { color: var(--orange); border-color: var(--orange); background: rgba(255,123,46,0.07); }
+.detect-pill.hash   { color: var(--purple); border-color: var(--purple); background: rgba(176,110,255,0.07); }
+
+@keyframes pop { from { transform: scale(.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+.detect-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: blink 1s step-start infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* ── Source groups ─────────────────────── */
+.groups { display: flex; flex-direction: column; gap: 14px; margin-top: 6px; }
+
+.group { background: var(--panel); border: 1px solid var(--border); border-radius: 3px; overflow: hidden; }
+
+.group-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+  transition: background .15s;
+}
+.group-header:hover { background: rgba(255,255,255,0.02); }
+
+.group-icon { font-size: 0.9rem; }
+
+.group-title {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 600;
+  font-size: 0.8rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-hi);
+  flex: 1;
+}
+
+.group-count {
+  font-size: 0.6rem;
+  color: var(--dim);
+  letter-spacing: 0.1em;
+}
+
+.toggle-all {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--dim);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.15em;
+  padding: 3px 8px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all .15s;
+}
+.toggle-all:hover { border-color: var(--cyan); color: var(--cyan); }
+
+.sources-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 0;
+}
+
+.source-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(21,32,48,0.5);
+  border-right: 1px solid rgba(21,32,48,0.5);
+  transition: background .12s;
+  user-select: none;
+}
+.source-item:hover { background: rgba(0,207,255,0.04); }
+.source-item.disabled { opacity: 0.28; pointer-events: none; }
+
+/* Custom checkbox */
+.cb {
+  width: 13px; height: 13px;
+  border: 1px solid var(--border-hi);
+  border-radius: 1px;
+  flex-shrink: 0;
+  position: relative;
+  transition: all .15s;
+  background: #000;
+}
+.source-item:hover .cb { border-color: var(--cyan); }
+.source-item.checked .cb {
+  background: var(--cyan);
+  border-color: var(--cyan);
+  box-shadow: 0 0 8px rgba(0,207,255,0.4);
+}
+.source-item.checked .cb::after {
+  content: '';
+  position: absolute;
+  left: 3px; top: 1px;
+  width: 5px; height: 8px;
+  border: 1.5px solid #000;
+  border-top: none; border-left: none;
+  transform: rotate(40deg);
+}
+
+.source-name {
+  font-size: 0.78rem;
+  color: var(--text);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.source-item.checked .source-name { color: var(--text-hi); }
+
+.type-tags { display: flex; gap: 3px; }
+.type-tag {
+  font-size: 0.48rem;
+  padding: 1px 5px;
+  border-radius: 1px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+  opacity: 0.7;
+}
+.t-ip     { background: rgba(0,255,159,0.1);  color: var(--green); }
+.t-url    { background: rgba(0,207,255,0.1);  color: var(--cyan); }
+.t-domain { background: rgba(255,123,46,0.1); color: var(--orange); }
+.t-hash   { background: rgba(176,110,255,0.1);color: var(--purple); }
+
+/* ── Launch bar ─────────────────────────── */
+.launch-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.btn-launch {
+  background: var(--green);
+  color: #000;
+  border: none;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  padding: 13px 30px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all .2s;
+  box-shadow: 0 0 20px rgba(0,255,159,0.25);
+  position: relative;
+  overflow: hidden;
+}
+.btn-launch::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+  transform: translateX(-100%);
+  transition: transform .45s;
+}
+.btn-launch:hover { box-shadow: 0 0 36px rgba(0,255,159,0.45); transform: translateY(-1px); }
+.btn-launch:hover::after { transform: translateX(100%); }
+.btn-launch:active { transform: translateY(0); }
+
+.btn-clear {
+  background: transparent;
+  border: 1px solid var(--border-hi);
+  color: var(--dim);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  padding: 13px 18px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all .2s;
+}
+.btn-clear:hover { border-color: var(--red); color: var(--red); }
+
+.launch-info {
+  flex: 1;
+  text-align: right;
+  font-size: 0.65rem;
+  color: var(--dim);
+  letter-spacing: 0.1em;
+}
+.launch-info span { color: var(--cyan); font-size: 1rem; font-weight: bold; }
+
+/* ── History ─────────────────────────────── */
+.history-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 5px 10px;
+  font-size: 0.68rem;
+  color: var(--text);
+  cursor: pointer;
+  transition: all .15s;
+  max-width: 220px;
+}
+.chip .chip-val { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip:hover { border-color: var(--cyan); color: var(--cyan); }
+.chip .chip-del { color: var(--border-hi); font-size: 0.75rem; flex-shrink: 0; }
+.chip:hover .chip-del { color: var(--red); }
+.chip .chip-type { font-size: 0.5rem; opacity: 0.6; letter-spacing: 0.1em; text-transform: uppercase; }
+
+/* ── Toast ─────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: 24px; right: 24px;
+  padding: 11px 20px;
+  border-radius: 2px;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  border: 1px solid var(--green);
+  color: var(--green);
+  background: rgba(0,10,5,0.95);
+  box-shadow: 0 0 24px rgba(0,255,159,0.2);
+  z-index: 10000;
+  transform: translateY(12px);
+  opacity: 0;
+  transition: all .25s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.err  { border-color: var(--red); color: var(--red); box-shadow: 0 0 24px rgba(255,62,94,0.2); }
+
+/* ── Animations ─────────────────────────── */
+@keyframes slidein {
+  from { opacity: 0; transform: translateY(-14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.anim-1 { animation: slidein .45s ease .05s both; }
+.anim-2 { animation: slidein .45s ease .12s both; }
+.anim-3 { animation: slidein .45s ease .18s both; }
+.anim-4 { animation: slidein .45s ease .25s both; }
+
+footer {
+  margin-top: 40px;
+  text-align: center;
+  font-size: 0.58rem;
+  letter-spacing: 0.25em;
+  color: var(--dim);
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header>
+    <div class="wordmark">OS<em>Intel</em> Pivot</div>
+    <div class="subtitle">Browser-Based OSINT Pivot Tool · No API Required </div>
+    <hr class="hline">
+  </header>
+
+  <!-- Input -->
+  <div class="card anim-1">
+    <div class="card-label">OBSERVABLE LOOKUP</div>
+    <div class="card-body">
+      <div class="input-row">
+        <input id="obs-input" type="text"
+          placeholder="Paste IP address, URL, domain, or file hash…"
+          autocomplete="off" spellcheck="false">
+        <div class="detect-pill" id="detect-pill">
+          <div class="detect-dot"></div>
+          <span id="detect-label">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sources -->
+  <div class="card anim-2">
+    <div class="card-label">OSINT SOURCES</div>
+    <div class="card-body">
+      <div class="groups" id="groups"></div>
+    </div>
+  </div>
+
+  <!-- Launch -->
+  <div class="card anim-3">
+    <div class="card-label">EXECUTE</div>
+    <div class="card-body">
+      <div class="launch-bar">
+        <button class="btn-launch" id="btn-launch">⚡ Open Intel Tabs</button>
+        <button class="btn-clear"  id="btn-clear">✕ Clear</button>
+        <div class="launch-info">
+          <span id="sel-count">0</span> sources selected
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- History -->
+  <div class="card anim-4" id="history-card" style="display:none">
+    <div class="card-label">RECENT OBSERVABLES</div>
+    <div class="card-body">
+      <div class="history-chips" id="history-chips"></div>
+    </div>
+  </div>
+
+  <footer>All queries open in new browser tabs · No data transmitted externally</footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Source Definitions ─────────────────────────────────────────────────
+// types: ip | url | domain | hash
+const SOURCE_GROUPS = [
+  {
+    icon: '🌐',
+    title: 'IP Intelligence',
+    sources: [
+	  { id: 'vt_ip',       name: 'VirusTotal IP',    types: ['ip'],            url: v => `https://www.virustotal.com/gui/ip-address/${v}` },
+      { id: 'shodan',       name: 'Shodan',           types: ['ip'],            url: v => `https://www.shodan.io/host/${v}` },
+      { id: 'greynoise',    name: 'GreyNoise',        types: ['ip'],            url: v => `https://viz.greynoise.io/ip/${v}` },
+      { id: 'abuseipdb',   name: 'AbuseIPDB',        types: ['ip'],            url: v => `https://www.abuseipdb.com/check/${v}` },
+      { id: 'pulsedive_ip',name: 'Pulsedive IP',     types: ['ip'],            url: v => `https://pulsedive.com/ioc/${v}` },
+      { id: 'xforce_ip',   name: 'IBM X-Force IP',   types: ['ip'],            url: v => `https://exchange.xforce.ibmcloud.com/ip/${v}` },
+      { id: 'ipinfo',      name: 'IPInfo.io',         types: ['ip'],            url: v => `https://ipinfo.io/${v}` },
+      { id: 'talos',       name: 'Cisco Talos',       types: ['ip','domain'],   url: v => `https://talosintelligence.com/reputation_center/lookup?search=${v}` },
+    ]
+  },
+  {
+    icon: '🔗',
+    title: 'URL & Domain',
+    sources: [
+      { id: 'urlscan',     name: 'URLScan.io',        types: ['url','domain'],  url: v => `https://urlscan.io/search/#${encodeURIComponent(v)}` },
+      { id: 'vt_url',     name: 'VirusTotal URL',    types: ['url','domain'],  url: v => `https://www.virustotal.com/gui/domain/${encodeURIComponent(v)}` },
+      { id: 'pulsedive_u',name: 'Pulsedive URL',     types: ['url','domain'],  url: v => `https://pulsedive.com/ioc/${encodeURIComponent(v)}` },
+      { id: 'xforce_url', name: 'IBM X-Force URL',   types: ['url','domain'],  url: v => `https://exchange.xforce.ibmcloud.com/url/${encodeURIComponent(v)}` },
+      { id: 'kaspersky_u',name: 'Kaspersky OpenTip', types: ['url','domain'],  url: v => `https://opentip.kaspersky.com/${encodeURIComponent(v)}` },
+      { id: 'urlvoid',    name: 'URLVoid',            types: ['url','domain'],  url: v => `https://www.urlvoid.com/scan/${encodeURIComponent(v)}/` },
+      { id: 'whois',      name: 'WHOIS Lookup',       types: ['domain'],        url: v => `https://who.is/whois/${encodeURIComponent(v)}` },
+      { id: 'crtsh',      name: 'crt.sh SSL Certs',  types: ['domain'],        url: v => `https://crt.sh/?q=${encodeURIComponent(v)}` },
+      { id: 'sucuri',     name: 'Sucuri SiteCheck',  types: ['url','domain'],  url: v => `https://sitecheck.sucuri.net/results/${encodeURIComponent(v)}` },
+    ]
+  },
+  {
+    icon: '#',
+    title: 'File Hashes',
+    sources: [
+      { id: 'vt_hash',    name: 'VirusTotal Hash',   types: ['hash'],          url: v => `https://www.virustotal.com/gui/file/${v}` },
+      { id: 'otx',        name: 'AlienVault OTX',    types: ['hash'],          url: v => `https://otx.alienvault.com/indicator/file/${v}` },
+      { id: 'kaspersky_h',name: 'Kaspersky OpenTip', types: ['hash'],          url: v => `https://opentip.kaspersky.com/${v}` },  
+      { id: 'intezer',    name: 'Intezer Analyze',    types: ['hash'],          url: v => `https://analyze.intezer.com/#/files/${v}` },
+      { id: 'hybrid',     name: 'Hybrid Analysis',   types: ['hash'],          url: v => `https://www.hybrid-analysis.com/search?query=${v}` },
+      { id: 'triage',     name: 'Triage (Hatching)',  types: ['hash'],          url: v => `https://tria.ge/s?q=${v}` },
+    ]
+  },
+  {
+    icon: '🔍',
+    title: 'Threat Intel',
+    sources: [
+      { id: 'threatfox',  name: 'ThreatFox',          types: ['ip','hash','domain','url'], url: v => `https://threatfox.abuse.ch/browse.php?search=ioc:${encodeURIComponent(v)}` },
+      { id: 'otx_all',    name: 'OTX (General)',      types: ['ip','hash','domain','url'], url: v => `https://otx.alienvault.com/browse/global/indicators?q=${encodeURIComponent(v)}` },
+      { id: 'misp',       name: 'MISP Lookup',        types: ['ip','hash','domain','url'], url: v => `https://misp-galaxy.org/` },
+      { id: 'urlhaus',    name: 'URLhaus',            types: ['url','domain','ip'], url: v => `https://urlhaus.abuse.ch/browse.php?search=${encodeURIComponent(v)}` },
+    ]
+  },
+];
+
+// ── State ──────────────────────────────────────────────────────────────
+const checked   = new Set();
+const history   = JSON.parse(localStorage.getItem('osint_history') || '[]');
+let   detectedType = null;
+
+// ── Detection ──────────────────────────────────────────────────────────
+function detectType(val) {
+  val = val.trim();
+  if (!val) return null;
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(val))          return 'ip';
+  if (/^[a-fA-F0-9]{32}$|^[a-fA-F0-9]{40}$|^[a-fA-F0-9]{64}$/.test(val)) return 'hash';
+  if (/^https?:\/\//i.test(val))                      return 'url';
+  if (/^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z]{2,})+$/.test(val)) return 'domain';
+  return null;
+}
+
+// ── Render groups ──────────────────────────────────────────────────────
+function renderGroups() {
+  const container = document.getElementById('groups');
+  container.innerHTML = '';
+
+  SOURCE_GROUPS.forEach(group => {
+    const el = document.createElement('div');
+    el.className = 'group';
+
+    const header = document.createElement('div');
+    header.className = 'group-header';
+    header.innerHTML = `
+      <span class="group-icon">${group.icon}</span>
+      <span class="group-title">${group.title}</span>
+      <span class="group-count" id="gc-${group.title.replace(/\s/g,'')}">${countChecked(group)} / ${group.sources.length}</span>
+      <button class="toggle-all" data-group="${group.title}">ALL</button>
+    `;
+    header.querySelector('.toggle-all').addEventListener('click', e => {
+      e.stopPropagation();
+      toggleGroup(group);
+    });
+
+    const list = document.createElement('div');
+    list.className = 'sources-list';
+
+    group.sources.forEach(src => {
+      const item = document.createElement('div');
+      item.className = 'source-item' + (checked.has(src.id) ? ' checked' : '');
+      item.dataset.id = src.id;
+
+      const tags = src.types.map(t => `<span class="type-tag t-${t}">${t}</span>`).join('');
+
+      item.innerHTML = `
+        <div class="cb"></div>
+        <span class="source-name">${src.name}</span>
+        <div class="type-tags">${tags}</div>
+      `;
+
+      item.addEventListener('click', () => {
+        if (checked.has(src.id)) checked.delete(src.id);
+        else checked.add(src.id);
+        item.classList.toggle('checked');
+        updateCounts();
+      });
+
+      list.appendChild(item);
+    });
+
+    el.appendChild(header);
+    el.appendChild(list);
+    container.appendChild(el);
+  });
+
+  updateCounts();
+}
+
+function countChecked(group) {
+  return group.sources.filter(s => checked.has(s.id)).length;
+}
+
+function toggleGroup(group) {
+  const allOn = group.sources.every(s => checked.has(s.id));
+  group.sources.forEach(s => allOn ? checked.delete(s.id) : checked.add(s.id));
+  // Re-render source items
+  document.querySelectorAll('.source-item').forEach(el => {
+    const id = el.dataset.id;
+    el.classList.toggle('checked', checked.has(id));
+  });
+  updateCounts();
+}
+
+function updateCounts() {
+  document.getElementById('sel-count').textContent = checked.size;
+  SOURCE_GROUPS.forEach(group => {
+    const el = document.getElementById('gc-' + group.title.replace(/\s/g,''));
+    if (el) el.textContent = `${countChecked(group)} / ${group.sources.length}`;
+  });
+}
+
+// ── Auto-select by type ────────────────────────────────────────────────
+function autoSelectForType(type) {
+  checked.clear();
+  if (!type) { renderGroups(); return; }
+
+  SOURCE_GROUPS.forEach(group => {
+    group.sources.forEach(src => {
+      if (src.types.includes(type)) checked.add(src.id);
+    });
+  });
+
+  document.querySelectorAll('.source-item').forEach(el => {
+    el.classList.toggle('checked', checked.has(el.dataset.id));
+  });
+  updateCounts();
+}
+
+// ── Input handling ─────────────────────────────────────────────────────
+const obsInput  = document.getElementById('obs-input');
+const detectPill= document.getElementById('detect-pill');
+const detectLbl = document.getElementById('detect-label');
+
+obsInput.addEventListener('input', () => {
+  const t = detectType(obsInput.value);
+  if (t !== detectedType) {
+    detectedType = t;
+    if (t) {
+      detectPill.className = `detect-pill visible ${t}`;
+      detectLbl.textContent = t.toUpperCase();
+      autoSelectForType(t);
+    } else {
+      detectPill.className = 'detect-pill';
+      checked.clear();
+      document.querySelectorAll('.source-item').forEach(el => el.classList.remove('checked'));
+      updateCounts();
+    }
+  }
+});
+
+obsInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') launch();
+});
+
+// ── Launch ─────────────────────────────────────────────────────────────
+function launch() {
+  const val = obsInput.value.trim();
+  if (!val) { showToast('Enter an observable first.', true); return; }
+  if (checked.size === 0) { showToast('Select at least one source.', true); return; }
+
+  const allSources = SOURCE_GROUPS.flatMap(g => g.sources);
+  let opened = 0;
+
+  // Must open all tabs synchronously within the click handler —
+  // setTimeout breaks the user-gesture chain and triggers popup blockers.
+  checked.forEach(id => {
+    const src = allSources.find(s => s.id === id);
+    if (!src) return;
+    window.open(src.url(val), '_blank');
+    opened++;
+  });
+
+  showToast(`Opening ${opened} tab${opened !== 1 ? 's' : ''}…`);
+  addHistory(val, detectedType);
+}
+
+// ── History ────────────────────────────────────────────────────────────
+function addHistory(val, type) {
+  const idx = history.findIndex(h => h.val === val);
+  if (idx !== -1) history.splice(idx, 1);
+  history.unshift({ val, type: type || '?' });
+  if (history.length > 12) history.pop();
+  localStorage.setItem('osint_history', JSON.stringify(history));
+  renderHistory();
+}
+
+function renderHistory() {
+  const card   = document.getElementById('history-card');
+  const chips  = document.getElementById('history-chips');
+  if (history.length === 0) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  chips.innerHTML = '';
+  history.forEach((h, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.innerHTML = `
+      <span class="chip-type">${h.type}</span>
+      <span class="chip-val">${h.val}</span>
+      <span class="chip-del">✕</span>
+    `;
+    chip.querySelector('.chip-val').addEventListener('click', () => {
+      obsInput.value = h.val;
+      obsInput.dispatchEvent(new Event('input'));
+    });
+    chip.querySelector('.chip-del').addEventListener('click', e => {
+      e.stopPropagation();
+      history.splice(i, 1);
+      localStorage.setItem('osint_history', JSON.stringify(history));
+      renderHistory();
+    });
+    chips.appendChild(chip);
+  });
+}
+
+// ── Clear ──────────────────────────────────────────────────────────────
+document.getElementById('btn-clear').addEventListener('click', () => {
+  obsInput.value = '';
+  detectedType = null;
+  detectPill.className = 'detect-pill';
+  checked.clear();
+  document.querySelectorAll('.source-item').forEach(el => el.classList.remove('checked'));
+  updateCounts();
+  obsInput.focus();
+});
+
+// ── Toast ──────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg, err = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (err ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ── Boot ───────────────────────────────────────────────────────────────
+document.getElementById('btn-launch').addEventListener('click', launch);
+renderGroups();
+renderHistory();
+obsInput.focus();
+</script>
+</body>
+</html>
