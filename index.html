@@ -520,8 +520,9 @@ const SOURCE_GROUPS = [
     icon: '🔗',
     title: 'URL & Domain',
     sources: [
-      { id: 'urlscan',     name: 'URLScan.io',        types: ['url','domain'],  url: v => `https://urlscan.io/search/#${encodeURIComponent(v)}` },
       { id: 'vt_url',     name: 'VirusTotal URL',    types: ['url','domain'],  url: v => `https://www.virustotal.com/gui/domain/${encodeURIComponent(v)}` },
+	  { id: 'urlscan',     name: 'URLScan.io',        types: ['url','domain'],  url: v => `https://urlscan.io/search/#${encodeURIComponent(v)}` },
+      { id: 'webcheck',     name: 'Web-Check XYZ',    types: ['url','domain'],  url: v => `https://web-check.xyz/check/${encodeURIComponent(v)}` },
       { id: 'pulsedive_u',name: 'Pulsedive URL',     types: ['url','domain'],  url: v => `https://pulsedive.com/ioc/${encodeURIComponent(v)}` },
       { id: 'xforce_url', name: 'IBM X-Force URL',   types: ['url','domain'],  url: v => `https://exchange.xforce.ibmcloud.com/url/${encodeURIComponent(v)}` },
       { id: 'kaspersky_u',name: 'Kaspersky OpenTip', types: ['url','domain'],  url: v => `https://opentip.kaspersky.com/${encodeURIComponent(v)}` },
@@ -548,7 +549,7 @@ const SOURCE_GROUPS = [
     title: 'Threat Intel',
     sources: [
       { id: 'threatfox',  name: 'ThreatFox',          types: ['ip','hash','domain','url'], url: v => `https://threatfox.abuse.ch/browse.php?search=ioc:${encodeURIComponent(v)}` },
-      { id: 'otx_all',    name: 'OTX (General)',      types: ['ip','hash','domain','url'], url: v => `https://otx.alienvault.com/browse/global/indicators?q=${encodeURIComponent(v)}` },
+      { id: 'otx_all',    name: 'AV OTX',      types: ['ip','hash','domain','url'], url: v => `https://otx.alienvault.com/browse/global/indicators?q=${encodeURIComponent(v)}` },
       { id: 'urlhaus',    name: 'URLhaus',            types: ['url','domain','ip'], url: v => `https://urlhaus.abuse.ch/browse.php?search=${encodeURIComponent(v)}` },
     ]
   },
