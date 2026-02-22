@@ -651,15 +651,19 @@ function updateCounts() {
 }
 
 // ── Auto-select by type ────────────────────────────────────────────────
+const TYPE_DEFAULTS = {
+  ip:     ['shodan', 'greynoise', 'vt_ip', 'xforce_ip'],
+  url:    ['urlscan', 'vt_url', 'webcheck', 'xforce_url'],
+  domain: ['urlscan', 'whois', 'crtsh', 'xforce_url'],
+  hash:   ['vt_hash', 'otx', 'hybrid', 'intezer'],
+};
+
 function autoSelectForType(type) {
   checked.clear();
   if (!type) { renderGroups(); return; }
 
-  SOURCE_GROUPS.forEach(group => {
-    group.sources.forEach(src => {
-      if (src.types.includes(type)) checked.add(src.id);
-    });
-  });
+  const defaults = TYPE_DEFAULTS[type] || [];
+  defaults.forEach(id => checked.add(id));
 
   document.querySelectorAll('.source-item').forEach(el => {
     el.classList.toggle('checked', checked.has(el.dataset.id));
